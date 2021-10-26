@@ -9,4 +9,15 @@ terraform {
       version = "3.89.0"
     }
   }
+
+  backend "gcs" {
+    # you need to create bucket in advance
+    bucket  = "kiyotatakeshi-terraform-state"
+    prefix = "dev"
+  }
+}
+
+provider "google" {
+  project     = local.project
+  region      = var.region
 }

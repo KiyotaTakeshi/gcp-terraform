@@ -64,16 +64,16 @@ resource "google_compute_instance" "instance-1" {
     }
   }
 
-  service_account {
-    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
-    email  = "244021078925-compute@developer.gserviceaccount.com"
-    scopes = [
-      "https://www.googleapis.com/auth/devstorage.read_only",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring.write",
-      "https://www.googleapis.com/auth/service.management.readonly",
-      "https://www.googleapis.com/auth/servicecontrol",
-      "https://www.googleapis.com/auth/trace.append"
-    ]
-  }
+#  service_account {
+#    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
+#    email  = "244021078925-compute@developer.gserviceaccount.com"
+#    scopes = [
+#      "https://www.googleapis.com/auth/devstorage.read_only",
+#      "https://www.googleapis.com/auth/logging.write",
+#      "https://www.googleapis.com/auth/monitoring.write",
+#      "https://www.googleapis.com/auth/service.management.readonly",
+#      "https://www.googleapis.com/auth/servicecontrol",
+#      "https://www.googleapis.com/auth/trace.append"
+#    ]
+#  }
 }
