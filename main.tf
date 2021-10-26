@@ -22,7 +22,7 @@ resource "google_compute_instance" "instance-1" {
 
   # @see @see https://cloud.google.com/compute/docs/regions-zones?hl=ja#available
   zone = "asia-northeast1-a"
-  tags = ["http-server", "https-server"]
+  tags = ["http-server", "https-server", "spring"]
 
   boot_disk {
     auto_delete = true
