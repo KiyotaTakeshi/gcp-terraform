@@ -77,3 +77,53 @@ resource "google_compute_instance" "instance-1" {
 #    ]
 #  }
 }
+
+resource "google_sql_database_instance" "sample" {
+  name = "sample-428d0617-6ed5-42d2-aa26-216bcc6b73a3"
+  database_version = "POSTGRES_11"
+  region           = var.region
+  # for development
+  deletion_protection = false
+
+  # replica_configuration {}
+  settings {
+    tier = "db-custom-1-3840"
+    # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#availability_type
+    availability_type = "ZONAL"
+    backup_configuration {
+      enabled = true
+      # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#start_time
+      start_time = "16:00"
+      location = "us"
+      point_in_time_recovery_enabled = false
+      binary_log_enabled = false
+      transaction_log_retention_days = 7
+      backup_retention_settings {
+        retained_backups = 7
+        retention_unit = "COUNT"
+      }
+    }
+    # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#disk_autoresize
+    disk_autoresize = true
+    disk_size = 10
+    disk_type = "PD_SSD"
+    ip_configuration {
+      # not attach public ip
+      # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#ipv4_enabled
+      ipv4_enabled = false
+      private_network = "projects/sandbox-329805/global/networks/default"
+#      authorized_networks {
+#        value = ""
+#      }
+    }
+    location_preference {
+      zone = "asia-northeast1-a"
+    }
+    # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#day
+    maintenance_window {
+      day = 5
+      # The maintenance window is specified in UTC time
+      hour = 17 # 26(2AM)
+    }
+  }
+}
