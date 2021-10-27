@@ -12,12 +12,18 @@ terraform {
 
   backend "gcs" {
     # you need to create bucket in advance
-    bucket  = "kiyotatakeshi-terraform-state"
-    prefix = "dev"
+    bucket = "kiyotakeshi-terraform"
+    prefix = "sandbox"
   }
 }
 
 provider "google" {
-  project     = local.project
-  region      = var.region
+  project = local.project
+  region  = var.region
+}
+
+provider "google-beta" {
+  project = local.project
+  region  = var.region
+  zone    = var.zone
 }

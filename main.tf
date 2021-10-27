@@ -6,41 +6,43 @@ data "google_compute_image" "debian10" {
 resource "google_compute_disk" "default" {
   name  = "instance-1"
   type  = "pd-balanced"
-  zone  = "asia-northeast1-a"
+  zone  = var.zone
   image = data.google_compute_image.debian10.self_link
-  size = 10
+  size  = 10
   # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_disk#physical_block_size_bytes
   physical_block_size_bytes = 4096
 }
 
-resource "google_compute_instance" "instance-1" {
+resource "google_compute_instance" "instance_1" {
+
+  depends_on = [google_compute_disk.default]
+
   name = "instance-1"
 
   # @see https://cloud.google.com/compute/docs/machine-types
-  #  machine_type = "e2-micro-2"
   machine_type = "e2-micro"
 
-  # @see @see https://cloud.google.com/compute/docs/regions-zones?hl=ja#available
-  zone = "asia-northeast1-a"
+  # @see https://cloud.google.com/compute/docs/regions-zones?hl=ja#available
+  zone = var.zone
   tags = ["http-server", "https-server", "spring"]
 
   boot_disk {
-    auto_delete = true
-    device_name = "instance-1"
+    auto_delete = false
+    device_name = google_compute_disk.default.name
 
-#    # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#initialize_params
-#    initialize_params {
-#      # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#image
-#      image = data.google_compute_image.debian10.self_link
-#      # labels = {}
-#      size  = 10
-#      # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#type
-#      type  = "pd-balanced"
-#    }
+    #    # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#initialize_params
+    #    initialize_params {
+    #      # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#image
+    #      image = data.google_compute_image.debian10.self_link
+    #      # labels = {}
+    #      size  = 10
+    #      # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#type
+    #      type  = "pd-balanced"
+    #    }
 
     # https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#mode
-    mode        = "READ_WRITE"
-    source      = google_compute_disk.default.self_link
+    mode   = "READ_WRITE"
+    source = google_compute_disk.default.self_link
   }
   can_ip_forward      = false
   deletion_protection = false
@@ -51,9 +53,11 @@ resource "google_compute_instance" "instance-1" {
   #    interface = "SCSI"
   #  }
 
+  metadata_startup_script = file("./setup.sh")
+
   network_interface {
     # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#network
-    network    = "default"
+    network = "default"
     # private IP
     network_ip = "10.146.0.2"
     # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance#subnetwork
@@ -63,25 +67,53 @@ resource "google_compute_instance" "instance-1" {
       # Ephemeral public IP
     }
   }
+}
 
-#  service_account {
-#    # Google recommends custom service accounts that have cloud-platform scope and permissions granted via IAM Roles.
-#    email  = "244021078925-compute@developer.gserviceaccount.com"
-#    scopes = [
-#      "https://www.googleapis.com/auth/devstorage.read_only",
-#      "https://www.googleapis.com/auth/logging.write",
-#      "https://www.googleapis.com/auth/monitoring.write",
-#      "https://www.googleapis.com/auth/service.management.readonly",
-#      "https://www.googleapis.com/auth/servicecontrol",
-#      "https://www.googleapis.com/auth/trace.append"
-#    ]
-#  }
+resource "google_compute_firewall" "spring" {
+  name    = "allow-spring"
+  network = local.default_network
+
+  allow {
+    protocol = "tcp"
+    ports    = ["8080", "8081"]
+  }
+
+  # source_tags = [""]
+  source_ranges = ["0.0.0.0/0"]
+}
+
+resource "google_compute_network" "private_network" {
+  provider = google-beta
+  name     = "private-network"
+}
+resource "google_compute_global_address" "private_ip_block" {
+  provider      = google-beta
+  name          = "private-ip-block"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  ip_version    = "IPV4"
+  prefix_length = 20
+  network       = local.default_network
+}
+
+resource "random_id" "db_name_suffix" {
+  byte_length = 4
+}
+
+resource "google_service_networking_connection" "private_vpc_connection" {
+  provider                = google-beta
+  network                 = local.default_network
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_block.name]
 }
 
 resource "google_sql_database_instance" "sample" {
-  name = "sample-428d0617-6ed5-42d2-aa26-216bcc6b73a3"
+
+  depends_on       = [google_service_networking_connection.private_vpc_connection]
+  name             = "sample-${random_id.db_name_suffix.hex}"
   database_version = "POSTGRES_11"
   region           = var.region
+
   # for development
   deletion_protection = false
 
@@ -93,31 +125,32 @@ resource "google_sql_database_instance" "sample" {
     backup_configuration {
       enabled = true
       # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#start_time
-      start_time = "16:00"
-      location = "us"
+      start_time                     = "16:00"
+      location                       = "us"
       point_in_time_recovery_enabled = false
-      binary_log_enabled = false
+      binary_log_enabled             = false
       transaction_log_retention_days = 7
       backup_retention_settings {
         retained_backups = 7
-        retention_unit = "COUNT"
+        retention_unit   = "COUNT"
       }
     }
     # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#disk_autoresize
     disk_autoresize = true
-    disk_size = 10
-    disk_type = "PD_SSD"
+    disk_size       = 10
+    disk_type       = "PD_SSD"
+
     ip_configuration {
       # not attach public ip
       # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#ipv4_enabled
-      ipv4_enabled = false
-      private_network = "projects/sandbox-329805/global/networks/default"
-#      authorized_networks {
-#        value = ""
-#      }
+      ipv4_enabled    = false
+      private_network = local.default_network
+      #      authorized_networks {
+      #        value = ""
+      #      }
     }
     location_preference {
-      zone = "asia-northeast1-a"
+      zone = var.zone
     }
     # @see https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/sql_database_instance#day
     maintenance_window {
