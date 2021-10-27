@@ -5,6 +5,15 @@
 - terraform
 - gcloud
 
+※[You need to attach `servicenetworking.networksAdmin` role to terraform execute service account for private vpc connection](https://github.com/hashicorp/terraform-provider-google/issues/4066#issuecomment-513650386)
+
+```shell
+# @see https://cloud.google.com/sdk/gcloud/reference/projects/add-iam-policy-binding
+$ gcloud projects add-iam-policy-binding {{project_id}} \
+--member='serviceAccount:{{member}}' \
+--role='roles/servicenetworking.networksAdmin'
+```
+
 ---
 ## setup
 
