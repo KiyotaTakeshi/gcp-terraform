@@ -160,3 +160,20 @@ resource "google_sql_database_instance" "sample" {
     }
   }
 }
+
+# @see https://cloud.google.com/vpc/docs/configure-serverless-vpc-access#terraform
+resource "google_project_service" "vpcaccess_api" {
+  project = local.project
+  service = "vpcaccess.googleapis.com"
+}
+
+# if you fail to delete this resource
+# gcloud compute networks vpc-access connectors delete test --region asia-northeast1-a
+resource "google_vpc_access_connector" "default" {
+  name          = "test"
+  project       = local.project
+  region        = var.region
+  ip_cidr_range = "10.8.0.0/28"
+  network       = "default"
+}
+
