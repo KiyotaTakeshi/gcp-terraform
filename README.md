@@ -37,7 +37,7 @@ terraform apply
 ```
 
 ---
-## after apply
+## after apply(setup DB)
 
 - confirm creation 
 
@@ -47,6 +47,8 @@ gcloud compute instances list
 
 # check db instance name and private ip
 gcloud sql instances list
+
+$ gcloud compute networks vpc-access connectors describe test --region asia-northeast1 | grep name
 ```
 
 - set postgres user password
@@ -75,6 +77,11 @@ postgres=> \l
 postgres=> \q
 ```
 
+---
+## deploy to compute engine
+
+※ you also choose to deploy Cloud Run following procedure
+
 - sample program clone
 
 ```shell
@@ -102,6 +109,65 @@ export SPRING_DATASOURCE_PASSWORD={{password}}
 ```
 
 ---
+## deploy to Cloud Run
+
+- if you push image in advance
+
+```shell
+$ gcloud auth configure-docker
+
+$ docker tag docker.io/kiyotakeshi/employee:0.0.1 gcr.io/sandbox-330309/employee
+
+$ docker push gcr.io/sandbox-330309/employee
+```
+
+- deploy
+
+```shell
+gcloud run deploy employee-service \
+--memory=1024Mi \
+--image=gcr.io/sandbox-330309/employee:latest \
+--platform managed \
+--port 80 \
+--region asia-northeast1 \
+--allow-unauthenticated \
+--set-env-vars "SERVER_PORT=80,SPRING_DATASOURCE_URL=jdbc:postgresql://{{sql_instance_private_ip}}:5432/employee,SPRING_DATASOURCE_USERNAME=postgres, SPRING_DATASOURCE_PASSWORD=72e759b0-7f57-4481-9c33-7e5fcd2e58e1" \
+--vpc-connector test
+```
+
+or deploy in source code directory
+
+```shell
+$ gcloud run deploy employee-service \
+--memory=1024Mi \
+--platform managed \
+--port 80 \
+--region asia-northeast1 \
+--allow-unauthenticated \
+--set-env-vars "SERVER_PORT=80,SPRING_DATASOURCE_URL=jdbc:postgresql://10.69.96.5:5432/employee,SPRING_DATASOURCE_USERNAME=postgres, SPRING_DATASOURCE_PASSWORD=72e759b0-7f57-4481-9c33-7e5fcd2e58e1" \
+--vpc-connector test \
+--source .
+```
+
+- confirm
+
+```shell
+$ gcloud run services list
+   SERVICE           REGION           URL                                               LAST DEPLOYED BY              LAST DEPLOYED AT
+✔  employee-service  asia-northeast1  https://employee-service-vbiywy34nq-an.a.run.app  test@gmail.com  2021-12-24T05:56:19.620031Z
+```
+
+- delete
+
+```shell
+$ gcloud run services delete employee-service --region asia-northeast1
+
+$ gcloud compute networks vpc-access connectors delete test --region asia-northeast1-a
+
+$ terraform destroy
+```
+
+---
 ## test api
 
 ```shell
@@ -111,10 +177,3 @@ gcloud compute instances list
 curl http://{{compute_engine_public_ip}}:8081/employees
 # curl http://35.194.97.21:8081/employees -s | jq .
 ```
-
-
----
-# TODO: 
-
-## deploy to Cloud Run
-
